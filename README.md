@@ -11,10 +11,10 @@ No dependencies. No build step. Works on macOS, Linux, and Windows.
 ## Preview
 
 ```
-claude-opus-4-7 │ Writing README │ my-project │ 3 uncommitted ↑2 push ⚠ md drift │ ████░░░░░░ 40% │ 5h:35%(2h15m) 7d:42% │ ⚡ 2h left
+claude-opus-4-7 │ Writing README │ my-project (main) │ 3 uncommitted ↑2 push ⚠ md drift │ ████░░░░░░ 40% │ 5h:35%(2h15m) 7d:42% │ ⚡ 2h left
 ```
 
-Each segment is color-coded (dim, bright, pink, yellow, orange, blinking red) so the
+Each segment is color-coded (dim, bright, cyan, pink, yellow, orange, red) so the
 shape of the line itself communicates urgency at a glance.
 
 ## What you see, left to right
@@ -23,7 +23,7 @@ shape of the line itself communicates urgency at a glance.
 |---------|---------|
 | `claude-opus-4-7` | Current model (dim) |
 | `Writing README` | Active task — pulled from your in-progress TODO (bold) |
-| `my-project` | Working directory basename (dim) |
+| `my-project (main)` | Working directory basename (dim) + current branch in cyan; shows `(HEAD@<sha>)` in red for detached HEAD |
 | `3 uncommitted` | Untracked + modified files in the repo (dim) |
 | `↑2 push` / `↓1 pull` | Local branch is ahead/behind `origin/<branch>` |
 | `⚠ md drift` | `CLAUDE.md` ↔ `AGENTS.md` ↔ `GEMINI.md` are out of sync |
@@ -39,7 +39,7 @@ The context bar and rate-limit percentages share the same color scale:
 | < 50% | pink |
 | 50-65% | yellow |
 | 65-80% | orange |
-| ≥ 80% | blinking red with a 💀 prefix on the context bar |
+| ≥ 80% | red with a 💀 prefix on the context bar |
 
 ## Installation
 

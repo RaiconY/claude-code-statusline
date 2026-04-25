@@ -19,6 +19,7 @@ A single-file Node.js statusline for Claude Code, plus three optional companion 
 - **Hot-path budget.** `statusline.js` is invoked on every status refresh. No network, no `git fetch` on the hot path. Use bridge files in `os.tmpdir()` and background `spawn(detached: true).unref()` for anything that takes >100ms.
 - **Hide on happy path.** Segments only appear when they have something to say. `0 uncommitted` is invisible. `↑0 push` is invisible. Add new segments with the same discipline.
 - **Cross-platform.** Use `path.join`, `os.homedir()`, `windowsHide: true` on every `execSync`. No hard-coded `/` or `\`. No assumptions about which shell.
+- **Avoid TUI-incompatible ANSI attributes.** Blink (`\x1b[5m`), strikethrough, and underline-color extensions are silently dropped by Ink-based TUIs (Claude Code) and disabled by default in modern terminals. For attention without animation, use bold + bright color, inverse video (`\x1b[7m`), or a background-color badge. Stick to widely-supported codes: 30-37 (fg), 40-47 (bg), 1 (bold), 2 (dim), 7 (inverse), 38;2;R;G;B (truecolor).
 
 ## Editing this file
 
