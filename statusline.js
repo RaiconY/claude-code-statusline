@@ -76,6 +76,8 @@ process.stdin.on('end', () => {
 
     // --- Git status (live, local, no network) ---
     let gitInfo = '';
+    let branch = '';
+    let detachedSha = '';
     try {
       const gitExec = (cmd) => {
         try {
@@ -92,7 +94,10 @@ process.stdin.on('end', () => {
       }
 
       // Behind/ahead origin
-      const branch = gitExec('git branch --show-current');
+      branch = gitExec('git branch --show-current') || '';
+      if (!branch) {
+        detachedSha = gitExec('git rev-parse --short HEAD') || '';
+      }
       if (branch) {
         const behind = parseInt(gitExec(`git rev-list --count HEAD..origin/${branch}`) || '0', 10);
         const ahead = parseInt(gitExec(`git rev-list --count origin/${branch}..HEAD`) || '0', 10);
@@ -204,7 +209,13 @@ process.stdin.on('end', () => {
     const dirname = path.basename(dir);
     const segments = [`\x1b[2m${model}\x1b[0m`];
     if (task) segments.push(`\x1b[1m${task}\x1b[0m`);
-    segments.push(`\x1b[2m${dirname}\x1b[0m`);
+    let dirSegment = `\x1b[2m${dirname}\x1b[0m`;
+    if (branch) {
+      dirSegment += ` \x1b[36m(${branch})\x1b[0m`;
+    } else if (detachedSha) {
+      dirSegment += ` \x1b[5;31m(HEAD@${detachedSha})\x1b[0m`;
+    }
+    segments.push(dirSegment);
     if (gitInfo) segments.push(gitInfo.trim());
     if (ctx) segments.push(ctx.trim());
     for (const lp of limitParts) segments.push(lp);
