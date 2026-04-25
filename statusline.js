@@ -52,7 +52,7 @@ process.stdin.on('end', () => {
       } else if (used < 80) {
         ctx = ` \x1b[38;5;208m${bar} ${used}%\x1b[0m`;
       } else {
-        ctx = ` \x1b[5;31m\uD83D\uDC80 ${bar} ${used}%\x1b[0m`;
+        ctx = ` \x1b[31m\uD83D\uDC80 ${bar} ${used}%\x1b[0m`;
       }
     }
 
@@ -186,7 +186,7 @@ process.stdin.on('end', () => {
         if (pct < 50) return `\x1b[38;2;255;125;218m${pct}%\x1b[0m`;
         if (pct < 65) return `\x1b[33m${pct}%\x1b[0m`;
         if (pct < 80) return `\x1b[38;5;208m${pct}%\x1b[0m`;
-        return `\x1b[5;31m${pct}%\x1b[0m`;
+        return `\x1b[31m${pct}%\x1b[0m`;
       };
       const parts = [];
       if (rl.five_hour) {
@@ -213,7 +213,7 @@ process.stdin.on('end', () => {
     if (branch) {
       dirSegment += ` \x1b[36m(${branch})\x1b[0m`;
     } else if (detachedSha) {
-      dirSegment += ` \x1b[5;31m(HEAD@${detachedSha})\x1b[0m`;
+      dirSegment += ` \x1b[31m(HEAD@${detachedSha})\x1b[0m`;
     }
     segments.push(dirSegment);
     if (gitInfo) segments.push(gitInfo.trim());
