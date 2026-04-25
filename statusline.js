@@ -81,7 +81,7 @@ process.stdin.on('end', () => {
     try {
       const gitExec = (cmd) => {
         try {
-          return execSync(cmd, { encoding: 'utf8', cwd: dir, windowsHide: true, timeout: 1000 }).trim();
+          return execSync(cmd, { encoding: 'utf8', cwd: dir, windowsHide: true, timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
         } catch (e) { return null; }
       };
       const parts = [];
