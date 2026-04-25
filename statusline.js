@@ -127,6 +127,59 @@ process.stdin.on('end', () => {
       }
     } catch (e) {}
 
+    // --- Prompt cache state (from transcript JSONL) ---
+    let cacheSegment = '';
+    try {
+      if (session) {
+        const slug = dir.replace(/[:\\\/]/g, '-');
+        const transcriptPath = path.join(claudeDir, 'projects', slug, `${session}.jsonl`);
+        if (fs.existsSync(transcriptPath)) {
+          const stat = fs.statSync(transcriptPath);
+          const readBytes = Math.min(stat.size, 16384);
+          const startOffset = stat.size - readBytes;
+          const buf = Buffer.alloc(readBytes);
+          const fd = fs.openSync(transcriptPath, 'r');
+          fs.readSync(fd, buf, 0, readBytes, startOffset);
+          fs.closeSync(fd);
+          const lines = buf.toString('utf8').split('\n').filter(Boolean);
+          if (startOffset > 0 && lines.length > 0) lines.shift();
+
+          const fmt = (n) => {
+            if (n < 1000) return String(n);
+            if (n < 10000) return (n / 1000).toFixed(1) + 'k';
+            if (n < 1000000) return Math.round(n / 1000) + 'k';
+            return (n / 1000000).toFixed(1) + 'M';
+          };
+
+          for (let i = lines.length - 1; i >= 0; i--) {
+            try {
+              const rec = JSON.parse(lines[i]);
+              const u = rec && rec.type === 'assistant' && rec.message ? rec.message.usage : null;
+              if (!u) continue;
+              const read = u.cache_read_input_tokens || 0;
+              const write = u.cache_creation_input_tokens || 0;
+              if (read === 0 && write === 0) continue;
+              const ttl1h = (u.cache_creation && u.cache_creation.ephemeral_1h_input_tokens) || 0;
+
+              const parts = ['\x1b[2mcache\x1b[0m'];
+              if (read > 0) {
+                parts.push(`\x1b[1;32m↓${fmt(read)}\x1b[0m`);
+              }
+              if (write > 0) {
+                const sym = read > 0 ? '+' : '↑';
+                parts.push(`\x1b[33m${sym}${fmt(write)}\x1b[0m`);
+              }
+              if (ttl1h > 0) {
+                parts.push('\x1b[2;36m1h\x1b[0m');
+              }
+              cacheSegment = parts.join(' ');
+              break;
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {}
+
     // --- Peak hours indicator ---
     // Peak hours: Mon-Fri, 05:00–11:00 Pacific Time (PT)
     // PT = UTC-8 (PST) or UTC-7 (PDT, second Sun Mar – first Sun Nov)
@@ -218,6 +271,7 @@ process.stdin.on('end', () => {
     segments.push(dirSegment);
     if (gitInfo) segments.push(gitInfo.trim());
     if (ctx) segments.push(ctx.trim());
+    if (cacheSegment) segments.push(cacheSegment);
     for (const lp of limitParts) segments.push(lp);
     if (peakIndicator) segments.push(peakIndicator);
 
