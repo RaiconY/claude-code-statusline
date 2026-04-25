@@ -22,3 +22,6 @@ yarn-error.log*
 
 # Session handoff (per-session context, not for public repo)
 HANDOFF.md
+
+# Local Claude Code per-project permissions
+.claude/
