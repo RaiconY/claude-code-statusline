@@ -19,3 +19,6 @@ yarn-error.log*
 *.log
 .env
 .env.local
+
+# Session handoff (per-session context, not for public repo)
+HANDOFF.md
