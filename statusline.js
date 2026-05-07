@@ -160,6 +160,7 @@ process.stdin.on('end', () => {
               const write = u.cache_creation_input_tokens || 0;
               if (read === 0 && write === 0) continue;
               const ttl1h = (u.cache_creation && u.cache_creation.ephemeral_1h_input_tokens) || 0;
+              const ttl5m = (u.cache_creation && u.cache_creation.ephemeral_5m_input_tokens) || 0;
 
               const parts = ['\x1b[2mcache\x1b[0m'];
               if (read > 0) {
@@ -171,6 +172,8 @@ process.stdin.on('end', () => {
               }
               if (ttl1h > 0) {
                 parts.push('\x1b[2;36m1h\x1b[0m');
+              } else if (ttl5m > 0) {
+                parts.push('\x1b[33m5m\x1b[0m');
               }
               cacheSegment = parts.join(' ');
               break;
