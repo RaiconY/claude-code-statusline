@@ -22,6 +22,9 @@ shortened so the line fits in a 100-column terminal.
 
 ## What you see, left to right
 
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/e1394ced-fa9d-427b-8cec-3a5f6a00fbc7" />
+
+
 | Segment | Meaning |
 |---------|---------|
 | `Op 4.7 (1m)` | Current model, abbreviated: family (`Op`/`So`/`Ha`/`My`) + space + version + context size (dim). `Opus 4.7 (1M context)` becomes `Op 4.7 (1m)`. Unrecognised model names are shown as-is. |
