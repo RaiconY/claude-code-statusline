@@ -1,5 +1,7 @@
 # Claude Code Statusline
 
+<img width="1280" height="113" alt="photo_2026-05-07_19-11-41" src="https://github.com/user-attachments/assets/6e6a3d9d-20e4-4d97-8bd0-3d4da360a54e" />
+
 A feature-rich, single-file Node.js statusline for [Claude Code](https://claude.ai/code).
 One line at the bottom of your terminal that tells you everything you actually need:
 which model you're on, what task is in progress, the live git state of your repo, how
