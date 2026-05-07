@@ -21,7 +21,7 @@ process.stdin.on('end', () => {
       const family = m[1].charAt(0).toUpperCase() + m[1].charAt(1).toLowerCase();
       const version = m[2].replace('-', '.');
       const ctx = m[3];
-      let suffix = `${family}${version}`;
+      let suffix = `${family} ${version}`;
       if (ctx) {
         const ctxMatch = ctx.match(/(\d+)\s*([KMG])/i);
         if (ctxMatch) suffix += ` (${ctxMatch[1]}${ctxMatch[2].toLowerCase()})`;
@@ -107,7 +107,7 @@ process.stdin.on('end', () => {
       const status = gitExec('git status --porcelain');
       if (status) {
         const count = status.split('\n').filter(Boolean).length;
-        parts.push(`\x1b[2m${count} uncmtd\x1b[0m`);
+        parts.push(`\x1b[2m${count} dirty\x1b[0m`);
       }
 
       // Behind/ahead origin
@@ -249,41 +249,63 @@ process.stdin.on('end', () => {
         if (pct < 80) return `\x1b[38;5;208m${pct}%\x1b[0m`;
         return `\x1b[31m${pct}%\x1b[0m`;
       };
+      const formatReset = (resetTs, opts) => {
+        if (!Number.isFinite(resetTs)) return null;
+        const coarse = !!(opts && opts.coarse);
+        const resetMin = Math.max(0, Math.ceil((resetTs * 1000 - Date.now()) / 60000));
+        if (resetMin >= 1440) {
+          const d = Math.floor(resetMin / 1440);
+          const h = Math.floor((resetMin % 1440) / 60);
+          if (coarse && d >= 2) return `${d}d`;
+          if (d === 1 && h === 0) return '24h';
+          return `${d}d${h}h`;
+        }
+        if (resetMin >= 60) {
+          const h = Math.floor(resetMin / 60);
+          const m = resetMin % 60;
+          return m > 0 ? `${h}h${m}m` : `${h}h`;
+        }
+        return `${resetMin}m`;
+      };
+      const withReset = (label, bucket, opts) => {
+        const pct = Math.round(bucket.used_percentage);
+        const reset = formatReset(bucket.resets_at, opts);
+        const main = `${label}:${colorPct(pct)}`;
+        return reset ? `${main}\x1b[2m(${reset})\x1b[0m` : main;
+      };
       const parts = [];
-      if (rl.five_hour) {
-        const pct = Math.round(rl.five_hour.used_percentage);
-        const resetMs = rl.five_hour.resets_at * 1000 - Date.now();
-        const resetMin = Math.max(0, Math.ceil(resetMs / 60000));
-        const resetStr = resetMin >= 60
-          ? `${Math.floor(resetMin / 60)}h${resetMin % 60}m`
-          : `${resetMin}m`;
-        parts.push(`5h:${colorPct(pct)}\x1b[2m(${resetStr})\x1b[0m`);
-      }
-      if (rl.seven_day) {
-        const pct = Math.round(rl.seven_day.used_percentage);
-        parts.push(`7d:${colorPct(pct)}`);
-      }
+      if (rl.five_hour) parts.push(withReset('5h', rl.five_hour));
+      if (rl.seven_day) parts.push(withReset('7d', rl.seven_day, { coarse: true }));
       for (const p of parts) limitParts.push(p);
     }
 
     // --- Output ---
     const dirRaw = path.basename(dir);
-    const dirname = dirRaw.length > 15
+    const dirShort = dirRaw.length > 15
       ? dirRaw.slice(0, 7) + '…' + dirRaw.slice(-7)
       : dirRaw;
+    const buildDirSegment = (name) => {
+      let s = `\x1b[2m${name}\x1b[0m`;
+      if (branch) s += ` \x1b[36m(${branch})\x1b[0m`;
+      else if (detachedSha) s += ` \x1b[31m(HEAD@${detachedSha})\x1b[0m`;
+      return s;
+    };
     const segments = [`\x1b[2m${model}\x1b[0m`];
     if (task) segments.push(`\x1b[1m${task}\x1b[0m`);
-    let dirSegment = `\x1b[2m${dirname}\x1b[0m`;
-    if (branch) {
-      dirSegment += ` \x1b[36m(${branch})\x1b[0m`;
-    } else if (detachedSha) {
-      dirSegment += ` \x1b[31m(HEAD@${detachedSha})\x1b[0m`;
-    }
-    segments.push(dirSegment);
+    const dirIndex = segments.length;
+    segments.push(buildDirSegment(dirRaw));
     if (gitInfo) segments.push(gitInfo.trim());
     if (ctx) segments.push(ctx.trim());
     if (cacheSegment) segments.push(cacheSegment);
     for (const lp of limitParts) segments.push(lp);
+
+    // Truncate dirname only if the line crosses 100 visible columns.
+    if (dirRaw !== dirShort) {
+      const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+      let visible = -3; // " \u2502 " separator is 3 chars; pre-subtract one to undo over-counting.
+      for (const seg of segments) visible += 3 + stripAnsi(seg).length;
+      if (visible > 100) segments[dirIndex] = buildDirSegment(dirShort);
+    }
 
     process.stdout.write(segments.join(' \u2502 '));
   } catch (e) {}

@@ -71,12 +71,12 @@ function check(name, fn) {
 check('model shortening', () => {
   const dir = makeTempDir();
   const cases = [
-    ['Opus 4.7 (1M context)', 'Op4.7 (1m)'],
-    ['Sonnet 4.6', 'So4.6'],
-    ['Haiku 4.5', 'Ha4.5'],
+    ['Opus 4.7 (1M context)', 'Op 4.7 (1m)'],
+    ['Sonnet 4.6', 'So 4.6'],
+    ['Haiku 4.5', 'Ha 4.5'],
     ['Claude', 'Claude'],
-    ['claude-opus-4-7', 'Op4.7'],
-    ['Opus 5.0 (200K context)  ', 'Op5.0 (200k)'],
+    ['claude-opus-4-7', 'Op 4.7'],
+    ['Opus 5.0 (200K context)  ', 'Op 5.0 (200k)'],
     ['Æther 4.7', 'Æther 4.7'],
     ['', 'Claude']
   ];
@@ -106,16 +106,78 @@ check('context bar width and glyphs', () => {
   assert(over.includes('100%'), over);
 });
 
-check('dirname middle ellipsis', () => {
+check('dirname middle ellipsis triggers only when line >100 cols', () => {
   const parent = makeTempDir();
   const exact15 = path.join(parent, '123456789012345');
   const exact16 = path.join(parent, '1234567890123456');
+  const huge = path.join(parent, '0123456789'.repeat(12)); // 120 chars, alone breaks 100
   fs.mkdirSync(exact15);
   fs.mkdirSync(exact16);
+  fs.mkdirSync(huge);
 
-  assert(runStatusline(inputFor(exact15)).text.includes('123456789012345'));
-  assert(runStatusline(inputFor(exact16)).text.includes('1234567…0123456'));
+  // Short line → no truncation regardless of dirname length.
+  const t15 = runStatusline(inputFor(exact15)).text;
+  assert(t15.includes('123456789012345'), `len-15: full kept, got ${t15}`);
+  assert(!t15.includes('…'), `len-15: no ellipsis expected, got ${t15}`);
+
+  const t16 = runStatusline(inputFor(exact16)).text;
+  assert(t16.includes('1234567890123456'), `len-16 short line: full kept, got ${t16}`);
+  assert(!t16.includes('…'), `len-16 short line: no ellipsis, got ${t16}`);
+
+  // Dotfile-style name should pass through.
   assert(runStatusline(inputFor(path.join(parent, '.claude'))).text.includes('.claude'));
+
+  // Long line → middle ellipsis kicks in.
+  const big = runStatusline(inputFor(huge)).text;
+  assert(big.includes('0123456…3456789'), `huge dirname: ellipsis expected, got ${big}`);
+  assert(!big.includes('0123456789012345'), `huge dirname: full must NOT appear, got ${big}`);
+});
+
+check('rate limits show 5h and 7d countdowns with coarse 7d', () => {
+  const dir = makeTempDir();
+  const now = Math.floor(Date.now() / 1000);
+
+  // 5h shows precise h+m; 7d ≥2d is coarse (days only).
+  const t1 = runStatusline(inputFor(dir, {
+    rate_limits: {
+      five_hour: { used_percentage: 35, resets_at: now + 8100 },     // 2h15m
+      seven_day: { used_percentage: 42, resets_at: now + 388800 }    // 4d12h → "4d"
+    }
+  })).text;
+  assert(t1.includes('5h:35%(2h15m)'), t1);
+  assert(t1.includes('7d:42%(4d)'), t1);
+  assert(!t1.includes('4d12h'), `7d must drop hours when ≥2d, got: ${t1}`);
+
+  // 7d with <2d remaining keeps hours.
+  const t2 = runStatusline(inputFor(dir, {
+    rate_limits: {
+      seven_day: { used_percentage: 88, resets_at: now + 169200 }    // 1d23h → "1d23h"
+    }
+  })).text;
+  assert(t2.includes('7d:88%(1d23h)'), t2);
+
+  // Exactly 2d → still coarse.
+  const t3 = runStatusline(inputFor(dir, {
+    rate_limits: {
+      seven_day: { used_percentage: 50, resets_at: now + 172800 }    // 2d → "2d"
+    }
+  })).text;
+  assert(t3.includes('7d:50%(2d)'), t3);
+
+  // Exactly 1d → "24h", never bare "1d".
+  const t4 = runStatusline(inputFor(dir, {
+    rate_limits: {
+      seven_day: { used_percentage: 90, resets_at: now + 86400 }     // 1d → "24h"
+    }
+  })).text;
+  assert(t4.includes('7d:90%(24h)'), t4);
+  assert(!/\(1d\)/.test(t4), `must not render bare "1d", got: ${t4}`);
+
+  // No reset_at → no countdown; 7d still shows pct.
+  const minimal = runStatusline(inputFor(dir, {
+    rate_limits: { seven_day: { used_percentage: 99 } }
+  })).text;
+  assert(/7d:99%(?!\()/.test(minimal), minimal);
 });
 
 check('cache TTL and JSONL parsing', () => {

@@ -11,7 +11,7 @@ No dependencies. No build step. Works on macOS, Linux, and Windows.
 ## Preview
 
 ```
-Op4.7 (1m) │ Writing README │ claude-…tusline (main) │ 3 uncmtd ↑2 push ⚠ md drift │ ██░░░ 40% │ cache ↓75k +360 1h:42m │ 5h:35%(2h15m) │ 7d:42%
+Op 4.7 (1m) │ Writing README │ claude-…tusline (main) │ 3 dirty ↑2 push ⚠ md drift │ ██░░░ 40% │ cache ↓75k +360 1h:42m │ 5h:35%(2h15m) │ 7d:42%(4d)
 ```
 
 Each segment is color-coded (dim, bright, cyan, pink, yellow, orange, red) so the
@@ -22,16 +22,16 @@ shortened so the line fits in a 100-column terminal.
 
 | Segment | Meaning |
 |---------|---------|
-| `Op4.7 (1m)` | Current model, abbreviated: family (`Op`/`So`/`Ha`/`My`) + version + context size (dim). `Opus 4.7 (1M context)` becomes `Op4.7 (1m)`. Unrecognised model names are shown as-is. |
+| `Op 4.7 (1m)` | Current model, abbreviated: family (`Op`/`So`/`Ha`/`My`) + space + version + context size (dim). `Opus 4.7 (1M context)` becomes `Op 4.7 (1m)`. Unrecognised model names are shown as-is. |
 | `Writing README` | Active task — pulled from your in-progress TODO (bold) |
-| `claude-…tusline (main)` | Working directory basename (dim, trimmed to 15 chars with a middle ellipsis — `head…tail`, 7 chars each side, so both ends stay readable) + current branch in cyan; shows `(HEAD@<sha>)` in red for detached HEAD |
-| `3 uncmtd` | Untracked + modified files in the repo (dim) |
+| `claude-…tusline (main)` | Working directory basename (dim) + current branch in cyan; shows `(HEAD@<sha>)` in red for detached HEAD. The basename is trimmed to a 15-char `head…tail` middle ellipsis (7 chars each side) **only when the full status line would otherwise exceed 100 visible columns** — short lines keep the full name |
+| `3 dirty` | Untracked + modified files in the repo (dim). "Dirty" matches git's own term — `git describe --dirty`, `GIT_PS1_SHOWDIRTYSTATE` |
 | `↑2 push` / `↓1 pull` | Local branch is ahead/behind `origin/<branch>` |
 | `⚠ md drift` | `CLAUDE.md` ↔ `AGENTS.md` ↔ `GEMINI.md` are out of sync |
 | `██░░░ 40%` | Context window usage — 5-cell bar with half-block precision (`█▌░`, ~10% per step in 5 cells), adjusted for the auto-compact buffer |
 | `cache ↓75k +360 1h:42m` | Prompt cache state from the session transcript: `↓` tokens read from cache (90% discount), `+` or `↑` tokens written, optional `1h`/`5m` TTL bucket, optional `:Xm` countdown to expiry (live with `refreshInterval`) |
-| `5h:35%(2h15m)` | 5-hour rate limit usage + reset countdown |
-| `7d:42%` | 7-day rate limit usage |
+| `5h:35%(2h15m)` | 5-hour rate limit usage + reset countdown (`Xh Ym` / `Mm`) |
+| `7d:42%(4d)` | 7-day rate limit usage + reset countdown. Coarse format: `Nd` while ≥ 2 days remain; `1dXh` for the final day (renders as `24h` at exactly 1 day so the unit doesn't lie); `Xh Ym` / `Mm` below 1 day |
 
 The context bar and rate-limit percentages share the same color scale:
 
