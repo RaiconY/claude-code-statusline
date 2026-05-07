@@ -16,10 +16,10 @@ process.stdin.on('end', () => {
   try {
     const data = JSON.parse(input);
     const shortModel = (name) => {
-      const m = name.match(/^(Opus|Sonnet|Haiku|Mythos)\s+([\d.]+)(?:\s*\(([^)]+)\))?/i);
+      const m = name.match(/^(?:claude-)?(Opus|Sonnet|Haiku|Mythos)[\s-]+(\d+(?:[.-]\d+)?)(?:\s*\(([^)]+)\))?/i);
       if (!m) return name;
-      const family = m[1].slice(0, 2);
-      const version = m[2];
+      const family = m[1].charAt(0).toUpperCase() + m[1].charAt(1).toLowerCase();
+      const version = m[2].replace('-', '.');
       const ctx = m[3];
       let suffix = `${family}${version}`;
       if (ctx) {
@@ -152,14 +152,21 @@ process.stdin.on('end', () => {
         const transcriptPath = path.join(claudeDir, 'projects', slug, `${session}.jsonl`);
         if (fs.existsSync(transcriptPath)) {
           const stat = fs.statSync(transcriptPath);
-          const readBytes = Math.min(stat.size, 16384);
-          const startOffset = stat.size - readBytes;
+          // Read 1 extra byte before the window so the first \n distinguishes
+          // a partial line from a clean line boundary.
+          const desired = Math.min(stat.size, 16384);
+          const startOffset = Math.max(0, stat.size - desired - 1);
+          const readBytes = stat.size - startOffset;
           const buf = Buffer.alloc(readBytes);
           const fd = fs.openSync(transcriptPath, 'r');
           fs.readSync(fd, buf, 0, readBytes, startOffset);
           fs.closeSync(fd);
-          const lines = buf.toString('utf8').split('\n').filter(Boolean);
-          if (startOffset > 0 && lines.length > 0) lines.shift();
+          let content = buf.toString('utf8');
+          if (startOffset > 0) {
+            const nl = content.indexOf('\n');
+            if (nl >= 0) content = content.slice(nl + 1);
+          }
+          const lines = content.split('\n').filter(Boolean);
 
           const fmt = (n) => {
             if (n < 1000) return String(n);
@@ -183,7 +190,8 @@ process.stdin.on('end', () => {
 
               if (!lastUsage) {
                 lastUsage = { read, write };
-                lastTouchTs = new Date(rec.timestamp).getTime();
+                const ts = new Date(rec.timestamp).getTime();
+                lastTouchTs = Number.isFinite(ts) ? ts : 0;
               }
               if (!lastWriteTtl && write > 0 && u.cache_creation) {
                 if (u.cache_creation.ephemeral_1h_input_tokens > 0) lastWriteTtl = '1h';
