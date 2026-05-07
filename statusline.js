@@ -180,57 +180,6 @@ process.stdin.on('end', () => {
       }
     } catch (e) {}
 
-    // --- Peak hours indicator ---
-    // Peak hours: Mon-Fri, 05:00–11:00 Pacific Time (PT)
-    // PT = UTC-8 (PST) or UTC-7 (PDT, second Sun Mar – first Sun Nov)
-    let peakIndicator = '';
-    try {
-      const now = new Date();
-      const year = now.getUTCFullYear();
-      const isDST = (() => {
-        const mar1 = new Date(Date.UTC(year, 2, 1));
-        const dstStart = new Date(Date.UTC(year, 2, 1 + (7 - mar1.getUTCDay()) % 7 + 7, 10));
-        const nov1 = new Date(Date.UTC(year, 10, 1));
-        const dstEnd = new Date(Date.UTC(year, 10, 1 + (7 - nov1.getUTCDay()) % 7, 9));
-        return now >= dstStart && now < dstEnd;
-      })();
-      const ptOffsetHours = isDST ? -7 : -8;
-      const ptMs = now.getTime() + ptOffsetHours * 3600 * 1000;
-      const ptDate = new Date(ptMs);
-      const ptDay = ptDate.getUTCDay();
-      const ptHour = ptDate.getUTCHours();
-      const ptMin = ptDate.getUTCMinutes();
-      const isWeekday = ptDay >= 1 && ptDay <= 5;
-      const ptTimeMinutes = ptHour * 60 + ptMin;
-      const isPeak = isWeekday && ptTimeMinutes >= 300 && ptTimeMinutes < 660;
-
-      const fmtDur = (mins) => {
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
-        if (h >= 1) return `${h}h`;
-        return `${m}m`;
-      };
-
-      if (isPeak) {
-        const left = 660 - ptTimeMinutes;
-        peakIndicator = `\x1b[1;33m\u26A1 ${fmtDur(left)} left\x1b[0m`;
-      } else {
-        let daysUntil;
-        if (isWeekday && ptTimeMinutes < 300) {
-          // Before peak today — simple delta
-          peakIndicator = `\x1b[2m${fmtDur(300 - ptTimeMinutes)} till \u26A1\x1b[0m`;
-        } else {
-          // After peak or weekend — find next weekday 05:00 PT
-          if (ptDay === 5) daysUntil = 3;        // Fri after peak → Mon
-          else if (ptDay === 6) daysUntil = 2;    // Sat → Mon
-          else if (ptDay === 0) daysUntil = 1;    // Sun → Mon
-          else daysUntil = 1;                      // Mon-Thu after peak → tomorrow
-          const minsUntil = (1440 - ptTimeMinutes) + (daysUntil - 1) * 1440 + 300;
-          peakIndicator = `\x1b[2m${fmtDur(minsUntil)} till \u26A1\x1b[0m`;
-        }
-      }
-    } catch (e) {}
-
     // --- Rate limits (subscription) ---
     const limitParts = [];
     const rl = data.rate_limits;
@@ -273,7 +222,6 @@ process.stdin.on('end', () => {
     if (ctx) segments.push(ctx.trim());
     if (cacheSegment) segments.push(cacheSegment);
     for (const lp of limitParts) segments.push(lp);
-    if (peakIndicator) segments.push(peakIndicator);
 
     process.stdout.write(segments.join(' \u2502 '));
   } catch (e) {}

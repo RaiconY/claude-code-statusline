@@ -3,15 +3,15 @@
 A feature-rich, single-file Node.js statusline for [Claude Code](https://claude.ai/code).
 One line at the bottom of your terminal that tells you everything you actually need:
 which model you're on, what task is in progress, the live git state of your repo, how
-much context you've burned, your subscription rate limits, and how long until the
-Anthropic peak-hours window ends.
+much context you've burned, your prompt-cache hit/write state, and your subscription
+rate limits.
 
 No dependencies. No build step. Works on macOS, Linux, and Windows.
 
 ## Preview
 
 ```
-claude-opus-4-7 │ Writing README │ my-project (main) │ 3 uncommitted ↑2 push ⚠ md drift │ ████░░░░░░ 40% │ 5h:35%(2h15m) 7d:42% │ ⚡ 2h left
+claude-opus-4-7 │ Writing README │ my-project (main) │ 3 uncommitted ↑2 push ⚠ md drift │ ████░░░░░░ 40% │ cache ↓75k +360 1h │ 5h:35%(2h15m) 7d:42%
 ```
 
 Each segment is color-coded (dim, bright, cyan, pink, yellow, orange, red) so the
@@ -28,9 +28,9 @@ shape of the line itself communicates urgency at a glance.
 | `↑2 push` / `↓1 pull` | Local branch is ahead/behind `origin/<branch>` |
 | `⚠ md drift` | `CLAUDE.md` ↔ `AGENTS.md` ↔ `GEMINI.md` are out of sync |
 | `████░░░░░░ 40%` | Context window usage, adjusted for the auto-compact buffer |
+| `cache ↓75k +360 1h` | Prompt cache state from the session transcript: `↓` tokens read from cache (90% discount), `+` or `↑` tokens written, optional `1h` for extended TTL |
 | `5h:35%(2h15m)` | 5-hour rate limit usage + reset countdown |
 | `7d:42%` | 7-day rate limit usage |
-| `⚡ 2h left` | Time remaining in the current Anthropic peak-hours window |
 
 The context bar and rate-limit percentages share the same color scale:
 
@@ -111,9 +111,6 @@ None of them are required for the statusline itself to work.
 
 - **Windows:** the script uses `windowsHide: true` on every `execSync` call, so no
   console flashes appear during git polling.
-- **DST handling:** the peak-hours indicator computes Pacific Time manually (second
-  Sunday of March → first Sunday of November) instead of trusting `Intl.DateTimeFormat`,
-  which has stale tz data on some Windows installs.
 - **Path separators:** built on `path.join` and `os.homedir()` throughout, no
   hard-coded `/` or `\`.
 
@@ -122,8 +119,7 @@ None of them are required for the statusline itself to work.
 The script is ~210 lines of dependency-free Node.js. Open it and tweak.
 The most common customizations:
 
-- **Disable the peak-hours indicator** — delete or guard the `peakIndicator` block (lines ~125-174). It's specific to Anthropic's published peak hours and irrelevant if you're not on a subscription plan.
-- **Move to a different timezone** — replace the `ptOffsetHours` calculation with your own offset.
+- **Hide the cache segment** — delete the `Prompt cache state` block. Useful if you don't run Claude Code in this terminal or don't want token counts visible.
 - **Change the colour thresholds** — search for `< 50` / `< 65` / `< 80` and edit.
 - **Hide the model name** — remove `\`\x1b[2m${model}\x1b[0m\`` from the `segments` array at the bottom.
 - **Use a different separator** — change `' │ '` (the `│` character) on the final line.
