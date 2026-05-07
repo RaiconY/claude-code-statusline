@@ -25,3 +25,6 @@ HANDOFF.md
 
 # Local Claude Code per-project permissions
 .claude/
+
+# Internal research notes (RU); kept locally, not part of public repo
+docs/
