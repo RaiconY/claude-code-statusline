@@ -201,32 +201,61 @@ gap'а внутри одной сессии. На одном TTL это нево
 per model», но не специально подчёркнуто, что **разные сессии греют
 общий кеш**.
 
-## Известные ограничения статусной строки
+## История фичи countdown в statusline (откачена)
 
-### Countdown в idle
+Короткая итерация в этом репозитории, которая стоит фиксации как
+урок дизайна для event-driven UI.
 
-Сегмент `cache ↓X +Y 1h:Zm` использует `Date.now() - last_touch_ts`
-для расчёта remaining. Но **statusline это short-lived процесс,
-вызываемый только на change events** (prompt submit, tool finish,
-state change). В idle он не обновляется.
+### Что было
 
-Сценарий «вернулся после 53 минут паузы, увидел `1h:7m yellow`»
-**не работает**: на экране всё ещё значение, записанное 53 минуты назад
-(`1h:60m`). Когда нажмёшь Enter — новый ход обновит cache, countdown
-сбросится на 60m, момент `7m` так и не появится.
+В коммите `a0bce24` сегмент cache получил countdown:
 
-Countdown реально полезен только в активной работе (ходы каждые
-несколько секунд/минут), где видно, как кеш стареет в реальном времени.
-Для «вернулся после паузы» нужен механизм auto-refresh statusline,
-которого в Claude Code нет.
+```
+cache ↓180k 1h:7m
+       ^^^^^^^^^^
+       remaining до истечения TTL
+```
 
-Возможные направления (не реализованы):
-- Background job (PowerShell scheduled task) → bridge file → statusline.
-  Проблема: statusline всё равно не рефрешится без change event.
-- Hook на `UserPromptSubmit` → bridge file. Не помогает — refresh всё
-  равно после нажатия Enter.
-- Возможный аргумент Claude Code `--statusline-refresh-interval` — не
-  существует на 2026-05-07.
+Расчёт `Date.now() - last_touch_ts` против `ttlMs` (300 000 для 5m,
+3 600 000 для 1h). Цвет dim/yellow/red в зависимости от % остатка.
+
+### Почему откатили
+
+Claude Code запускает statusline-скрипт **только на change events**
+(prompt submit, tool finish, /compact, vim mode toggle), debounced 300ms.
+В idle строка замирает.
+
+Это сделало промежуточные значения countdown'а невидимыми:
+
+- Если пользователь активно работает — каждый turn HIT'ит кеш
+  (refresh TTL до 60m) или WRITE'ит новый блок (тоже 60m). Countdown
+  всегда болтается около верхней границы, никогда не доходит до yellow.
+- Если пользователь ушёл и вернулся через 53 минуты — statusline
+  всё ещё показывает то, что было 53 минуты назад (`1h:60m`). Как
+  только он отправит prompt, ход либо HIT (refresh, обратно на 60m),
+  либо MISS (новый write, тоже 60m). Момент `1h:7m yellow` физически
+  существует, но в статусной строке невидим.
+
+То есть индикатор подразумевал liveness, которой UI не имеет.
+Countdown удалён, остался только bucket label (`1h` / `5m`).
+
+### Альтернатива: `refreshInterval`
+
+Claude Code поддерживает опцию [`refreshInterval`](https://code.claude.com/docs/en/statusline)
+в `~/.claude/settings.json` (минимум 500ms). Если её включить, statusline
+будет вызываться по таймеру даже в idle, и countdown ожил бы.
+
+Не использую по двум причинам:
+1. Это user-level setting, не code change. По умолчанию
+   `refreshInterval` не задан, и подавляющее большинство установок
+   не будут его включать.
+2. Codex (second opinion в обсуждении) указал, что даже с
+   `refreshInterval` countdown остаётся "тикающим рывками между
+   intervals" — на event-driven UI time-relative индикатор всё равно
+   подразумевает liveness, которая концептуально не вяжется с моделью.
+
+Bucket label (`1h` / `5m`) показывает стабильную семантику API
+без претензии на live-time.
 
 ## Открытые вопросы
 
