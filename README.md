@@ -11,24 +11,25 @@ No dependencies. No build step. Works on macOS, Linux, and Windows.
 ## Preview
 
 ```
-claude-opus-4-7 │ Writing README │ my-project (main) │ 3 uncommitted ↑2 push ⚠ md drift │ ████░░░░░░ 40% │ cache ↓75k +360 1h │ 5h:35%(2h15m) 7d:42%
+Op4.7 (1m) │ Writing README │ claude-…tusline (main) │ 3 uncmtd ↑2 push ⚠ md drift │ ██░░░ 40% │ cache ↓75k +360 1h:42m │ 5h:35%(2h15m) │ 7d:42%
 ```
 
 Each segment is color-coded (dim, bright, cyan, pink, yellow, orange, red) so the
-shape of the line itself communicates urgency at a glance.
+shape of the line itself communicates urgency at a glance. Labels are aggressively
+shortened so the line fits in a 100-column terminal.
 
 ## What you see, left to right
 
 | Segment | Meaning |
 |---------|---------|
-| `claude-opus-4-7` | Current model (dim) |
+| `Op4.7 (1m)` | Current model, abbreviated: family (`Op`/`So`/`Ha`/`My`) + version + context size (dim). `Opus 4.7 (1M context)` becomes `Op4.7 (1m)`. Unrecognised model names are shown as-is. |
 | `Writing README` | Active task — pulled from your in-progress TODO (bold) |
-| `my-project (main)` | Working directory basename (dim) + current branch in cyan; shows `(HEAD@<sha>)` in red for detached HEAD |
-| `3 uncommitted` | Untracked + modified files in the repo (dim) |
+| `claude-…tusline (main)` | Working directory basename (dim, trimmed to 15 chars with a middle ellipsis — `head…tail`, 7 chars each side, so both ends stay readable) + current branch in cyan; shows `(HEAD@<sha>)` in red for detached HEAD |
+| `3 uncmtd` | Untracked + modified files in the repo (dim) |
 | `↑2 push` / `↓1 pull` | Local branch is ahead/behind `origin/<branch>` |
 | `⚠ md drift` | `CLAUDE.md` ↔ `AGENTS.md` ↔ `GEMINI.md` are out of sync |
-| `████░░░░░░ 40%` | Context window usage, adjusted for the auto-compact buffer |
-| `cache ↓75k +360 1h` | Prompt cache state from the session transcript: `↓` tokens read from cache (90% discount), `+` or `↑` tokens written, optional `1h` for extended TTL |
+| `██░░░ 40%` | Context window usage — 5-cell bar with half-block precision (`█▌░`, ~10% per step in 5 cells), adjusted for the auto-compact buffer |
+| `cache ↓75k +360 1h:42m` | Prompt cache state from the session transcript: `↓` tokens read from cache (90% discount), `+` or `↑` tokens written, optional `1h`/`5m` TTL bucket, optional `:Xm` countdown to expiry (live with `refreshInterval`) |
 | `5h:35%(2h15m)` | 5-hour rate limit usage + reset countdown |
 | `7d:42%` | 7-day rate limit usage |
 

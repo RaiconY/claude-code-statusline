@@ -15,7 +15,20 @@ process.stdin.on('end', () => {
   clearTimeout(stdinTimeout);
   try {
     const data = JSON.parse(input);
-    const model = data.model?.display_name || 'Claude';
+    const shortModel = (name) => {
+      const m = name.match(/^(Opus|Sonnet|Haiku|Mythos)\s+([\d.]+)(?:\s*\(([^)]+)\))?/i);
+      if (!m) return name;
+      const family = m[1].slice(0, 2);
+      const version = m[2];
+      const ctx = m[3];
+      let suffix = `${family}${version}`;
+      if (ctx) {
+        const ctxMatch = ctx.match(/(\d+)\s*([KMG])/i);
+        if (ctxMatch) suffix += ` (${ctxMatch[1]}${ctxMatch[2].toLowerCase()})`;
+      }
+      return suffix;
+    };
+    const model = shortModel(data.model?.display_name || 'Claude');
     const dir = data.workspace?.current_dir || process.cwd();
     const session = data.session_id || '';
     const remaining = data.context_window?.remaining_percentage;
@@ -42,8 +55,12 @@ process.stdin.on('end', () => {
         } catch (e) {}
       }
 
-      const filled = Math.floor(used / 10);
-      const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(10 - filled);
+      const steps = Math.max(0, Math.min(10, Math.floor(used / 10)));
+      let bar = '';
+      for (let i = 0; i < 5; i++) {
+        const cell = Math.max(0, Math.min(2, steps - i * 2));
+        bar += cell === 2 ? '\u2588' : cell === 1 ? '\u258c' : '\u2591';
+      }
 
       if (used < 50) {
         ctx = ` \x1b[38;2;255;125;218m${bar} ${used}%\x1b[0m`;
@@ -90,7 +107,7 @@ process.stdin.on('end', () => {
       const status = gitExec('git status --porcelain');
       if (status) {
         const count = status.split('\n').filter(Boolean).length;
-        parts.push(`\x1b[2m${count} uncommitted\x1b[0m`);
+        parts.push(`\x1b[2m${count} uncmtd\x1b[0m`);
       }
 
       // Behind/ahead origin
@@ -190,22 +207,22 @@ process.stdin.on('end', () => {
               const remainingSec = (ttlMs - (Date.now() - lastTouchTs)) / 1000;
               const bucketColor = lastWriteTtl === '5m' ? '\x1b[33m' : '\x1b[2;36m';
               let suffix = `${bucketColor}${lastWriteTtl}\x1b[0m`;
-              if (remainingSec > 0) {
-                let timeStr;
-                if (remainingSec < 60) timeStr = Math.ceil(remainingSec) + 's';
-                else if (remainingSec < 3600) timeStr = Math.ceil(remainingSec / 60) + 'm';
-                else {
-                  const h = Math.floor(remainingSec / 3600);
-                  const m = Math.floor((remainingSec % 3600) / 60);
-                  timeStr = h + 'h' + (m > 0 ? m + 'm' : '');
-                }
-                const pct = (remainingSec * 1000) / ttlMs;
-                let countColor;
-                if (pct < 0.1) countColor = '\x1b[31m';
-                else if (pct < 0.25) countColor = '\x1b[33m';
-                else countColor = '\x1b[2m';
-                suffix += `${countColor}:${timeStr}\x1b[0m`;
+              let timeStr;
+              if (remainingSec <= 0) timeStr = '0m';
+              else if (remainingSec < 60) timeStr = Math.ceil(remainingSec) + 's';
+              else if (remainingSec < 3600) timeStr = Math.ceil(remainingSec / 60) + 'm';
+              else {
+                const h = Math.floor(remainingSec / 3600);
+                const m = Math.floor((remainingSec % 3600) / 60);
+                timeStr = h + 'h' + (m > 0 ? m + 'm' : '');
               }
+              const pct = remainingSec > 0 ? (remainingSec * 1000) / ttlMs : 0;
+              let countColor;
+              if (pct <= 0) countColor = '\x1b[31m';
+              else if (pct < 0.1) countColor = '\x1b[38;5;208m';
+              else if (pct < 0.25) countColor = '\x1b[33m';
+              else countColor = '\x1b[2m';
+              suffix += `${countColor}:${timeStr}\x1b[0m`;
               parts.push(suffix);
             }
             cacheSegment = parts.join(' ');
@@ -242,7 +259,10 @@ process.stdin.on('end', () => {
     }
 
     // --- Output ---
-    const dirname = path.basename(dir);
+    const dirRaw = path.basename(dir);
+    const dirname = dirRaw.length > 15
+      ? dirRaw.slice(0, 7) + '…' + dirRaw.slice(-7)
+      : dirRaw;
     const segments = [`\x1b[2m${model}\x1b[0m`];
     if (task) segments.push(`\x1b[1m${task}\x1b[0m`);
     let dirSegment = `\x1b[2m${dirname}\x1b[0m`;
