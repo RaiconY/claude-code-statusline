@@ -204,6 +204,7 @@ event: message_stop           ◀─── usage уже не приходит
 ```
 Уровень изменения      │ Что слетает
 ───────────────────────┼─────────────────────────────────
+effort level (CC)      │ ВСЁ — full history re-read на след. msg ✱
 tool definitions       │ ВСЁ (tools + system + messages)
 ────────────────────── ├─ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 web_search/fetch toggle│ system + messages
@@ -220,6 +221,16 @@ thinking params        │ только messages
   смена модели — отдельный namespace, кеш не работает,
                  но и не «теряется» (виден на старой модели)
 ```
+
+✱ **Effort level (Claude Code-специфично).** Команда `/model` с
+переключением effort level выводит явный диагностический warning:
+
+> «This conversation is cached for the current effort level. Switching
+> to max means the full history gets re-read on your next message.»
+
+То есть effort level входит в cache key (вероятно через изменение
+system prompt или tool selection). Подробности — в
+[`prompt-caching-investigation.md`](./prompt-caching-investigation.md#cache-invalidation--наблюдаемое-поведение).
 
 ## 9. Минимальные пороги (cacheable prompt length)
 

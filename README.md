@@ -51,12 +51,15 @@ The context bar and rate-limit percentages share the same color scale:
    {
      "statusLine": {
        "type": "command",
-       "command": "node \"/absolute/path/to/statusline.js\""
+       "command": "node \"/absolute/path/to/statusline.js\"",
+       "refreshInterval": 60
      }
    }
    ```
 
    On Windows use forward slashes inside the JSON string: `"node \"C:/Users/you/.claude/hooks/statusline.js\""`.
+
+   `refreshInterval: 60` re-runs the script every 60 seconds in addition to event-driven updates (new assistant message, `/compact`, permission mode change, vim mode toggle). Without it, the cache TTL countdown freezes in idle — Claude Code only refreshes the statusline on those events, so a value rendered 50 minutes ago will keep showing `60m remaining` until you press Enter. 60 seconds is enough to step through the color thresholds (dim → yellow → red) cleanly while staying cheap (the script only reads the last 16 KB of the session transcript). Requires Claude Code ≥2.1.97.
 
 4. **Restart Claude Code.** That's it.
 

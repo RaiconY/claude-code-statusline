@@ -152,18 +152,22 @@ process.stdin.on('end', () => {
           };
 
           let lastUsage = null;
+          let lastTouchTs = null;
           let lastWriteTtl = null;
 
           for (let i = lines.length - 1; i >= 0; i--) {
             try {
               const rec = JSON.parse(lines[i]);
               const u = rec && rec.type === 'assistant' && rec.message ? rec.message.usage : null;
-              if (!u) continue;
+              if (!u || !rec.timestamp) continue;
               const read = u.cache_read_input_tokens || 0;
               const write = u.cache_creation_input_tokens || 0;
               if (read === 0 && write === 0) continue;
 
-              if (!lastUsage) lastUsage = { read, write };
+              if (!lastUsage) {
+                lastUsage = { read, write };
+                lastTouchTs = new Date(rec.timestamp).getTime();
+              }
               if (!lastWriteTtl && write > 0 && u.cache_creation) {
                 if (u.cache_creation.ephemeral_1h_input_tokens > 0) lastWriteTtl = '1h';
                 else if (u.cache_creation.ephemeral_5m_input_tokens > 0) lastWriteTtl = '5m';
@@ -182,8 +186,27 @@ process.stdin.on('end', () => {
               parts.push(`\x1b[33m${sym}${fmt(lastUsage.write)}\x1b[0m`);
             }
             if (lastWriteTtl) {
+              const ttlMs = lastWriteTtl === '5m' ? 300000 : 3600000;
+              const remainingSec = (ttlMs - (Date.now() - lastTouchTs)) / 1000;
               const bucketColor = lastWriteTtl === '5m' ? '\x1b[33m' : '\x1b[2;36m';
-              parts.push(`${bucketColor}${lastWriteTtl}\x1b[0m`);
+              let suffix = `${bucketColor}${lastWriteTtl}\x1b[0m`;
+              if (remainingSec > 0) {
+                let timeStr;
+                if (remainingSec < 60) timeStr = Math.ceil(remainingSec) + 's';
+                else if (remainingSec < 3600) timeStr = Math.ceil(remainingSec / 60) + 'm';
+                else {
+                  const h = Math.floor(remainingSec / 3600);
+                  const m = Math.floor((remainingSec % 3600) / 60);
+                  timeStr = h + 'h' + (m > 0 ? m + 'm' : '');
+                }
+                const pct = (remainingSec * 1000) / ttlMs;
+                let countColor;
+                if (pct < 0.1) countColor = '\x1b[31m';
+                else if (pct < 0.25) countColor = '\x1b[33m';
+                else countColor = '\x1b[2m';
+                suffix += `${countColor}:${timeStr}\x1b[0m`;
+              }
+              parts.push(suffix);
             }
             cacheSegment = parts.join(' ');
           }

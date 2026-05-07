@@ -201,61 +201,83 @@ gap'а внутри одной сессии. На одном TTL это нево
 per model», но не специально подчёркнуто, что **разные сессии греют
 общий кеш**.
 
-## История фичи countdown в statusline (откачена)
+## Поведение статусной строки
 
-Короткая итерация в этом репозитории, которая стоит фиксации как
-урок дизайна для event-driven UI.
+### Countdown в idle — решено через `refreshInterval`
 
-### Что было
+Сегмент `cache ↓X +Y 1h:Zm` использует `Date.now() - last_touch_ts`
+для расчёта remaining. Statusline это short-lived процесс. По умолчанию
+он вызывается только на event-driven обновлениях: новое assistant-
+сообщение, `/compact`, смена permission mode, переключение vim mode
+(debounce 300ms, in-flight cancellation при следующем событии).
 
-В коммите `a0bce24` сегмент cache получил countdown:
+Без таймера сценарий «вернулся после 53 минут паузы, увидел `1h:7m
+yellow`» не работал: на экране оставалось `1h:60m` от последнего
+refresh'а 53-минутной давности. После нажатия Enter новый ход обновлял
+кеш, countdown сбрасывался на 60m, момент `7m` так и не появлялся.
 
+**Решение — поле `statusLine.refreshInterval` в `~/.claude/settings.json`.**
+Доступно с Claude Code v2.1.97 (у нас 2.1.132). Значение в секундах,
+минимум 1, дополняется к event-driven обновлениям. Цитата из
+[документации](https://code.claude.com/docs/en/statusline):
+
+> «The optional `refreshInterval` field re-runs your command every N
+> seconds in addition to the event-driven updates. The minimum is `1`.
+> Set this when your status line shows time-based data such as a clock,
+> or when background subagents change git state while the main session
+> is idle.»
+
+Рекомендация для этого statusline — **`refreshInterval: 60`**. Раз в
+минуту достаточно, чтобы countdown переходил через цветовые границы
+плавно (dim → yellow → red), и при этом нагрузка минимальна — мы читаем
+только последние 16 KB транскрипта.
+
+Установка:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node \"C:/Users/ilyap/.claude/hooks/statusline.js\"",
+    "refreshInterval": 60
+  }
+}
 ```
-cache ↓180k 1h:7m
-       ^^^^^^^^^^
-       remaining до истечения TTL
-```
 
-Расчёт `Date.now() - last_touch_ts` против `ttlMs` (300 000 для 5m,
-3 600 000 для 1h). Цвет dim/yellow/red в зависимости от % остатка.
+Без этого поля countdown в idle «застывает» — это документированное
+ограничение, не баг кода statusline.
 
-### Почему откатили
+## Cache invalidation — наблюдаемое поведение
 
-Claude Code запускает statusline-скрипт **только на change events**
-(prompt submit, tool finish, /compact, vim mode toggle), debounced 300ms.
-В idle строка замирает.
+### Effort level switch — full prefix re-read
 
-Это сделало промежуточные значения countdown'а невидимыми:
+Claude Code показывает явный warning при смене effort level через
+команду `/model`:
 
-- Если пользователь активно работает — каждый turn HIT'ит кеш
-  (refresh TTL до 60m) или WRITE'ит новый блок (тоже 60m). Countdown
-  всегда болтается около верхней границы, никогда не доходит до yellow.
-- Если пользователь ушёл и вернулся через 53 минуты — statusline
-  всё ещё показывает то, что было 53 минуты назад (`1h:60m`). Как
-  только он отправит prompt, ход либо HIT (refresh, обратно на 60m),
-  либо MISS (новый write, тоже 60m). Момент `1h:7m yellow` физически
-  существует, но в статусной строке невидим.
+> «This conversation is cached for the current effort level. Switching
+> to max means the full history gets re-read on your next message.»
 
-То есть индикатор подразумевал liveness, которой UI не имеет.
-Countdown удалён, остался только bucket label (`1h` / `5m`).
+Это означает, что **effort level входит в hash префикса** (или
+вызывает изменение system prompt / tool selection, что для cache
+key эквивалентно). Любое переключение → полная инвалидация
+текущего кеша → следующее сообщение оплачивается как cache_creation
+(write 1.25× или 2×) на всю накопленную историю.
 
-### Альтернатива: `refreshInterval`
+Импликации:
+- На длинной сессии (100k+ токенов) одно переключение effort
+  стоит ≈ 1.25× × N токенов write (или 2× при 1h TTL).
+- Кеш для нового effort строится с нуля. Не проверено, остаётся ли
+  старый кеш «жить» в пуле и подхватывается ли при возврате к
+  прежнему effort до истечения TTL.
+- В UI это видно как: после переключения первое assistant-сообщение
+  даёт `cache ↑XXk` (write) вместо обычного `cache ↓XXk +0.5k` (read).
 
-Claude Code поддерживает опцию [`refreshInterval`](https://code.claude.com/docs/en/statusline)
-в `~/.claude/settings.json` (минимум 500ms). Если её включить, statusline
-будет вызываться по таймеру даже в idle, и countdown ожил бы.
+Источник: in-app diagnostic message при `/model` → выбор нового
+effort level (скриншот зафиксирован 2026-05-07).
 
-Не использую по двум причинам:
-1. Это user-level setting, не code change. По умолчанию
-   `refreshInterval` не задан, и подавляющее большинство установок
-   не будут его включать.
-2. Codex (second opinion в обсуждении) указал, что даже с
-   `refreshInterval` countdown остаётся "тикающим рывками между
-   intervals" — на event-driven UI time-relative индикатор всё равно
-   подразумевает liveness, которая концептуально не вяжется с моделью.
-
-Bucket label (`1h` / `5m`) показывает стабильную семантику API
-без претензии на live-time.
+В каскаде инвалидации `prompt-caching.md` раздел 8 — это самый верхний
+уровень, наряду с изменением tool definitions. Эффективно работает
+как «новая сессия с тем же транскриптом».
 
 ## Открытые вопросы
 
