@@ -6,4 +6,4 @@ Small smoke tests for the dependency-free statusline:
 node tests/statusline-smoke.test.js
 ```
 
-They execute `statusline.js` as a black box and use only Node.js built-ins.
+They execute `statusline.js` in a VM harness with `child_process` stubbed and use only Node.js built-ins.

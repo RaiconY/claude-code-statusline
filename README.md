@@ -113,14 +113,15 @@ None of them are required for the statusline itself to work.
 
 ## Cross-platform notes
 
-- **Windows:** the script uses `windowsHide: true` on every `execSync` call, so no
+- **Windows:** the script uses `windowsHide: true` on every git subprocess call, so no
   console flashes appear during git polling.
-- **Path separators:** built on `path.join` and `os.homedir()` throughout, no
-  hard-coded `/` or `\`.
+- **Path separators:** filesystem paths use `path.join` and `os.homedir()`;
+  Claude transcript lookup intentionally mirrors Claude Code's project-slug
+  convention by replacing path separators with `-`.
 
 ## Customization
 
-The script is ~210 lines of dependency-free Node.js. Open it and tweak.
+The script is ~300 lines of dependency-free Node.js. Open it and tweak.
 The most common customizations:
 
 - **Hide the cache segment** — delete the `Prompt cache state` block. Useful if you don't run Claude Code in this terminal or don't want token counts visible.

@@ -83,7 +83,7 @@ gap=56.5m read= 89 312  vibe-coding-course
 gap=54.3m read=137 966  Context-Engineering
 gap=51.5m read=103 585  vibe-coding-course
 gap=50.7m read=171 537  openclaw
-gap=48.3m read= 51 246  ilyap (home)
+gap=48.3m read= 51 246  personal (home)
 ```
 
 ### Long-gap MISSes (44 случая, gap > 5 min, write > 0)
@@ -238,7 +238,7 @@ refresh'а 53-минутной давности. После нажатия Enter
 {
   "statusLine": {
     "type": "command",
-    "command": "node \"C:/Users/ilyap/.claude/hooks/statusline.js\"",
+    "command": "node \"C:/Users/you/.claude/hooks/statusline.js\"",
     "refreshInterval": 60
   }
 }

@@ -6,9 +6,9 @@
 //   2. Синхронизирован ли локальный branch с GitHub (из кэша предыдущей сессии)
 //   3. В фоне делает git fetch и обновляет кэш для следующей сессии
 //
-// ВАЖНО ДЛЯ АГЕНТА: пользователь НЕ видит вывод этого хука.
-// Вывод попадает только в system-reminder агента (Claude).
-// Если информация важна — агент должен сам сообщить пользователю.
+// ВАЖНО: stderr видит пользователь, а additionalContext попадает только
+// в system-reminder агента (Claude). Если агенту нужна эта информация,
+// он должен сам учитывать additionalContext.
 
 const fs = require('fs');
 const path = require('path');
@@ -20,6 +20,7 @@ const homeDir = os.homedir();
 const cacheDir = path.join(homeDir, '.claude', 'cache');
 const cacheFile = path.join(cacheDir, 'github-sync.json');
 
+try {
 if (!fs.existsSync(cacheDir)) {
   fs.mkdirSync(cacheDir, { recursive: true });
 }
@@ -119,7 +120,7 @@ if (alerts.length > 0) {
 
 // 8. Background process: fetch + update cache for next session
 const bgScript = `
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const fs = require('fs');
 
 const cwd = ${JSON.stringify(cwd)};
@@ -133,12 +134,19 @@ function exec(cmd) {
   } catch (e) { return null; }
 }
 
+function git(args) {
+  try {
+    return execFileSync('git', args, { encoding: 'utf8', cwd, windowsHide: true, timeout: 30000 }).trim();
+  } catch (e) { return null; }
+}
+
 // Fetch updates remote tracking refs without touching local branch
 exec('git fetch origin --quiet --no-tags');
 
 // Count divergence
-const behindStr = exec('git rev-list --count HEAD..origin/' + branch);
-const aheadStr  = exec('git rev-list --count origin/' + branch + '..HEAD');
+const remoteRef = 'refs/remotes/origin/' + branch;
+const behindStr = git(['rev-list', '--count', 'HEAD..' + remoteRef]);
+const aheadStr  = git(['rev-list', '--count', remoteRef + '..HEAD']);
 
 const behind = parseInt(behindStr, 10) || 0;
 const ahead  = parseInt(aheadStr,  10) || 0;
@@ -157,3 +165,6 @@ const child = spawn(process.execPath, ['-e', bgScript], {
 });
 
 child.unref();
+} catch (e) {
+  process.exit(0);
+}

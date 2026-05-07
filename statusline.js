@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 let input = '';
 const stdinTimeout = setTimeout(() => process.exit(0), 3000);
@@ -67,7 +67,7 @@ process.stdin.on('end', () => {
       } else if (used < 65) {
         ctx = ` \x1b[33m${bar} ${used}%\x1b[0m`;
       } else if (used < 80) {
-        ctx = ` \x1b[38;5;208m${bar} ${used}%\x1b[0m`;
+        ctx = ` \x1b[38;2;255;140;0m${bar} ${used}%\x1b[0m`;
       } else {
         ctx = ` \x1b[31m\uD83D\uDC80 ${bar} ${used}%\x1b[0m`;
       }
@@ -96,28 +96,29 @@ process.stdin.on('end', () => {
     let branch = '';
     let detachedSha = '';
     try {
-      const gitExec = (cmd) => {
+      const gitExec = (args) => {
         try {
-          return execSync(cmd, { encoding: 'utf8', cwd: dir, windowsHide: true, timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+          return execFileSync('git', args, { encoding: 'utf8', cwd: dir, windowsHide: true, timeout: 1000, stdio: ['pipe', 'pipe', 'ignore'] }).trim();
         } catch (e) { return null; }
       };
       const parts = [];
 
       // Uncommitted changes
-      const status = gitExec('git status --porcelain');
+      const status = gitExec(['status', '--porcelain']);
       if (status) {
         const count = status.split('\n').filter(Boolean).length;
         parts.push(`\x1b[2m${count} dirty\x1b[0m`);
       }
 
       // Behind/ahead origin
-      branch = gitExec('git branch --show-current') || '';
+      branch = gitExec(['branch', '--show-current']) || '';
       if (!branch) {
-        detachedSha = gitExec('git rev-parse --short HEAD') || '';
+        detachedSha = gitExec(['rev-parse', '--short', 'HEAD']) || '';
       }
       if (branch) {
-        const behind = parseInt(gitExec(`git rev-list --count HEAD..origin/${branch}`) || '0', 10);
-        const ahead = parseInt(gitExec(`git rev-list --count origin/${branch}..HEAD`) || '0', 10);
+        const remoteRef = `refs/remotes/origin/${branch}`;
+        const behind = parseInt(gitExec(['rev-list', '--count', `HEAD..${remoteRef}`]) || '0', 10);
+        const ahead = parseInt(gitExec(['rev-list', '--count', `${remoteRef}..HEAD`]) || '0', 10);
         if (behind > 0) parts.push(`\x1b[31m\u2193${behind} pull\x1b[0m`);
         if (ahead > 0) parts.push(`\x1b[33m\u2191${ahead} push\x1b[0m`);
       }
@@ -227,7 +228,7 @@ process.stdin.on('end', () => {
               const pct = remainingSec > 0 ? (remainingSec * 1000) / ttlMs : 0;
               let countColor;
               if (pct <= 0) countColor = '\x1b[31m';
-              else if (pct < 0.1) countColor = '\x1b[38;5;208m';
+              else if (pct < 0.1) countColor = '\x1b[38;2;255;140;0m';
               else if (pct < 0.25) countColor = '\x1b[33m';
               else countColor = '\x1b[2m';
               suffix += `${countColor}:${timeStr}\x1b[0m`;
@@ -246,7 +247,7 @@ process.stdin.on('end', () => {
       const colorPct = (pct) => {
         if (pct < 50) return `\x1b[38;2;255;125;218m${pct}%\x1b[0m`;
         if (pct < 65) return `\x1b[33m${pct}%\x1b[0m`;
-        if (pct < 80) return `\x1b[38;5;208m${pct}%\x1b[0m`;
+        if (pct < 80) return `\x1b[38;2;255;140;0m${pct}%\x1b[0m`;
         return `\x1b[31m${pct}%\x1b[0m`;
       };
       const formatReset = (resetTs, opts) => {

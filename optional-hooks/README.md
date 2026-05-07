@@ -142,7 +142,8 @@ If you want everything wired up at once, here's the full block to merge into
 {
   "statusLine": {
     "type": "command",
-    "command": "node \"/absolute/path/to/statusline.js\""
+    "command": "node \"/absolute/path/to/statusline.js\"",
+    "refreshInterval": 60
   },
   "hooks": {
     "SessionStart": [
