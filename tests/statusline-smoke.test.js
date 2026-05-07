@@ -13,13 +13,13 @@ function stripAnsi(s) {
   return s.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
-function runStatusline(input, env = {}) {
+function runStatusline(input, env = {}, execFileSyncStub = () => '') {
   let stdout = '';
   const stdin = new EventEmitter();
   stdin.setEncoding = () => {};
   const context = {
     require: (name) => {
-      if (name === 'child_process') return { execSync: () => '' };
+      if (name === 'child_process') return { execFileSync: execFileSyncStub };
       return require(name);
     },
     process: {
@@ -131,6 +131,44 @@ check('dirname middle ellipsis triggers only when line >100 cols', () => {
   const big = runStatusline(inputFor(huge)).text;
   assert(big.includes('0123456…3456789'), `huge dirname: ellipsis expected, got ${big}`);
   assert(!big.includes('0123456789012345'), `huge dirname: full must NOT appear, got ${big}`);
+});
+
+check('git segment shows dirty count, branch, and ahead push', () => {
+  const dir = makeTempDir();
+  const git = (file, args) => {
+    assert.strictEqual(file, 'git');
+    const key = args.join(' ');
+    const responses = {
+      'status --porcelain': ' M foo.js\n?? bar.js',
+      'branch --show-current': 'main',
+      'rev-list --count HEAD..refs/remotes/origin/main': '0',
+      'rev-list --count refs/remotes/origin/main..HEAD': '2'
+    };
+    return responses[key] || '';
+  };
+
+  const { text } = runStatusline(inputFor(dir), {}, git);
+  assert(text.includes(`${path.basename(dir)} (main)`), text);
+  assert(text.includes('2 dirty'), text);
+  assert(text.includes('↑2 push'), text);
+  assert(!text.includes('pull'), text);
+});
+
+check('git segment shows detached HEAD short sha', () => {
+  const dir = makeTempDir();
+  const git = (file, args) => {
+    assert.strictEqual(file, 'git');
+    const key = args.join(' ');
+    const responses = {
+      'status --porcelain': '',
+      'branch --show-current': '',
+      'rev-parse --short HEAD': 'deadbee'
+    };
+    return responses[key] || '';
+  };
+
+  const { text } = runStatusline(inputFor(dir), {}, git);
+  assert(text.includes(`${path.basename(dir)} (HEAD@deadbee)`), text);
 });
 
 check('rate limits show 5h and 7d countdowns with coarse 7d', () => {

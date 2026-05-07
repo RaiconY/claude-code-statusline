@@ -31,14 +31,14 @@ process.stdin.on('end', () => {
     const model = shortModel(data.model?.display_name || 'Claude');
     const dir = data.workspace?.current_dir || process.cwd();
     const session = data.session_id || '';
-    const remaining = data.context_window?.remaining_percentage;
+    const remaining = Number(data.context_window?.remaining_percentage);
     const homeDir = os.homedir();
     const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(homeDir, '.claude');
 
     // --- Context window ---
     const AUTO_COMPACT_BUFFER_PCT = 16.5;
     let ctx = '';
-    if (remaining != null) {
+    if (Number.isFinite(remaining)) {
       const usableRemaining = Math.max(0, ((remaining - AUTO_COMPACT_BUFFER_PCT) / (100 - AUTO_COMPACT_BUFFER_PCT)) * 100);
       const used = Math.max(0, Math.min(100, Math.round(100 - usableRemaining)));
 
@@ -269,14 +269,22 @@ process.stdin.on('end', () => {
         return `${resetMin}m`;
       };
       const withReset = (label, bucket, opts) => {
-        const pct = Math.round(bucket.used_percentage);
+        const usedPct = Number(bucket.used_percentage);
+        if (!Number.isFinite(usedPct)) return null;
+        const pct = Math.round(usedPct);
         const reset = formatReset(bucket.resets_at, opts);
         const main = `${label}:${colorPct(pct)}`;
         return reset ? `${main}\x1b[2m(${reset})\x1b[0m` : main;
       };
       const parts = [];
-      if (rl.five_hour) parts.push(withReset('5h', rl.five_hour));
-      if (rl.seven_day) parts.push(withReset('7d', rl.seven_day, { coarse: true }));
+      if (rl.five_hour) {
+        const p = withReset('5h', rl.five_hour);
+        if (p) parts.push(p);
+      }
+      if (rl.seven_day) {
+        const p = withReset('7d', rl.seven_day, { coarse: true });
+        if (p) parts.push(p);
+      }
       for (const p of parts) limitParts.push(p);
     }
 

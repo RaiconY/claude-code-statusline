@@ -10,8 +10,8 @@ failure (they all `process.exit(0)` on any error).
 | [`sync-md.js`](#sync-mdjs) | `PostToolUse` (Edit/Write/MultiEdit) | Auto-mirrors `CLAUDE.md` into `AGENTS.md` and `GEMINI.md` |
 | [`github-sync-check.js`](#github-sync-checkjs) | `SessionStart` | Warns about uncommitted files and `origin` divergence |
 
-Recommended placement: drop the files into `~/.claude/hooks/` to keep them
-alongside `statusline.js`.
+Recommended placement: drop the files directly into `~/.claude/hooks/` to keep
+them alongside `statusline.js`. The examples below use that flat layout.
 
 ---
 
@@ -36,7 +36,7 @@ This means it never warns about projects that don't use the synced-trio conventi
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/absolute/path/to/optional-hooks/md-sync-check.js\"",
+            "command": "node \"/absolute/path/to/md-sync-check.js\"",
             "timeout": 5
           }
         ]
@@ -73,7 +73,7 @@ it. With both installed, you edit `CLAUDE.md` and the other two stay in sync for
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/absolute/path/to/optional-hooks/sync-md.js\"",
+            "command": "node \"/absolute/path/to/sync-md.js\"",
             "timeout": 5
           }
         ]
@@ -121,7 +121,7 @@ session stale — but you pay zero startup cost for it.
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/absolute/path/to/optional-hooks/github-sync-check.js\"",
+            "command": "node \"/absolute/path/to/github-sync-check.js\"",
             "timeout": 10
           }
         ]
@@ -149,8 +149,8 @@ If you want everything wired up at once, here's the full block to merge into
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "node \"/absolute/path/to/optional-hooks/github-sync-check.js\"", "timeout": 10 },
-          { "type": "command", "command": "node \"/absolute/path/to/optional-hooks/md-sync-check.js\"",      "timeout": 5  }
+          { "type": "command", "command": "node \"/absolute/path/to/github-sync-check.js\"", "timeout": 10 },
+          { "type": "command", "command": "node \"/absolute/path/to/md-sync-check.js\"",      "timeout": 5  }
         ]
       }
     ],
@@ -158,7 +158,7 @@ If you want everything wired up at once, here's the full block to merge into
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "node \"/absolute/path/to/optional-hooks/sync-md.js\"", "timeout": 5 }
+          { "type": "command", "command": "node \"/absolute/path/to/sync-md.js\"", "timeout": 5 }
         ]
       }
     ]

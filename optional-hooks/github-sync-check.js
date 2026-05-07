@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, spawn } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 
 const cwd = process.cwd();
 const homeDir = os.homedir();
@@ -25,24 +25,24 @@ if (!fs.existsSync(cacheDir)) {
   fs.mkdirSync(cacheDir, { recursive: true });
 }
 
-function exec(cmd) {
+function exec(args) {
   try {
-    return execSync(cmd, { encoding: 'utf8', cwd, windowsHide: true, timeout: 5000 }).trim();
+    return execFileSync('git', args, { encoding: 'utf8', cwd, windowsHide: true, timeout: 5000 }).trim();
   } catch (e) {
     return null;
   }
 }
 
 // 1. Git repo check
-const gitDir = exec('git rev-parse --git-dir');
+const gitDir = exec(['rev-parse', '--git-dir']);
 if (!gitDir) process.exit(0);
 
 // 2. GitHub remote check
-const remoteUrl = exec('git remote get-url origin');
+const remoteUrl = exec(['remote', 'get-url', 'origin']);
 if (!remoteUrl || !remoteUrl.includes('github.com')) process.exit(0);
 
 // 3. Current branch
-const branch = exec('git branch --show-current');
+const branch = exec(['branch', '--show-current']);
 if (!branch) process.exit(0); // Detached HEAD — skip
 
 // 4. Repo name from URL
@@ -51,7 +51,7 @@ const repoName = remoteUrl
   .replace(/\.git$/, '');
 
 // 5. Uncommitted changes (fast, no network)
-const statusOutput = exec('git status --porcelain');
+const statusOutput = exec(['status', '--porcelain']);
 const hasUncommitted = !!statusOutput && statusOutput.length > 0;
 
 // 6. Read cached remote sync status (from previous session's background check)
@@ -120,19 +120,13 @@ if (alerts.length > 0) {
 
 // 8. Background process: fetch + update cache for next session
 const bgScript = `
-const { execSync, execFileSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 
 const cwd = ${JSON.stringify(cwd)};
 const branch = ${JSON.stringify(branch)};
 const cacheFile = ${JSON.stringify(cacheFile)};
 const cacheKey = ${JSON.stringify(cacheKey)};
-
-function exec(cmd) {
-  try {
-    return execSync(cmd, { encoding: 'utf8', cwd, windowsHide: true, timeout: 30000 }).trim();
-  } catch (e) { return null; }
-}
 
 function git(args) {
   try {
@@ -141,7 +135,7 @@ function git(args) {
 }
 
 // Fetch updates remote tracking refs without touching local branch
-exec('git fetch origin --quiet --no-tags');
+git(['fetch', 'origin', '--quiet', '--no-tags']);
 
 // Count divergence
 const remoteRef = 'refs/remotes/origin/' + branch;
